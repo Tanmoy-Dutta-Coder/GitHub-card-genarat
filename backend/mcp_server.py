@@ -6,6 +6,13 @@ from fastmcp import FastMCP
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+# Load environment variables from backend or root directory
+base_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(base_dir)
+load_dotenv(os.path.join(root_dir, ".env"), override=True)
+load_dotenv(override=True)
 
 # Initialize FastMCP Server
 mcp = FastMCP("GitHub Dev Card Tools")
@@ -29,8 +36,8 @@ def scrape_github(username: str) -> dict:
     }
     # Optional authentication to bypass API limits
     token = os.environ.get("GITHUB_TOKEN")
-    if token:
-        headers["Authorization"] = f"token {token}"
+    if token and token.strip() and token.strip() != "your_github_token_here":
+        headers["Authorization"] = f"Bearer {token.strip()}"
         
     user_url = f"https://api.github.com/users/{username}"
     
@@ -92,7 +99,7 @@ def analyze_profile(github_data: dict) -> dict:
     Returns developer vibe, top 3 skills, a clever fun fact, and a matched card theme.
     """
     api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
+    if not api_key or api_key.strip() == "your_gemini_api_key_here":
         # Fallback profile analysis if no API key is set for local testing
         return {
             "developer_vibe": "An awesome builder exploring the digital frontier.",

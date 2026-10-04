@@ -1,7 +1,16 @@
 import os
 import sys
+from dotenv import load_dotenv
 from google.adk.agents.llm_agent import LlmAgent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
 from google.adk.tools.mcp_tool.mcp_toolset import McpToolset, StdioConnectionParams, StdioServerParameters
+from google.genai import types
+
+base_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(base_dir)
+load_dotenv(os.path.join(root_dir, ".env"), override=True)
+load_dotenv(override=True)
 
 # Resolve absolute path to the local mcp_server.py file
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +47,7 @@ github_card_agent = LlmAgent(
     tools=[mcp_toolset]
 )
 
+
 class GitHubCardAgent:
     """
     Orchestrates the GitHub Developer Card Generation pipeline
@@ -46,6 +56,13 @@ class GitHubCardAgent:
     def __init__(self):
         self.agent = github_card_agent
         self.toolset = mcp_toolset
+        self.session_service = InMemorySessionService()
+        self.runner = Runner(
+            agent=self.agent,
+            session_service=self.session_service,
+            app_name="github_dev_card_app",
+            auto_create_session=True
+        )
 
     async def initialize(self):
         # Tools are registered synchronously in recent ADK versions
@@ -53,8 +70,21 @@ class GitHubCardAgent:
 
     async def generate_card(self, username: str) -> str:
         prompt = f"Generate and save a developer card for the GitHub user: {username}"
-        response = await self.agent.run(prompt)
-        return response.text
+        message = types.Content(
+            role="user",
+            parts=[types.Part.from_text(text=prompt)]
+        )
+        response_texts = []
+        async for event in self.runner.run_async(
+            user_id="default_user",
+            session_id=username,
+            new_message=message
+        ):
+            if event.content and event.content.parts:
+                for part in event.content.parts:
+                    if getattr(part, "text", None):
+                        response_texts.append(part.text)
+        return "".join(response_texts)
 
     async def close(self):
         try:

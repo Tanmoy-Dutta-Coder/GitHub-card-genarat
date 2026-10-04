@@ -7,13 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-# Load environment variables
-load_dotenv()
-
 # Add current folder to sys.path to guarantee local imports work
 base_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(base_dir)
 if base_dir not in sys.path:
     sys.path.append(base_dir)
+
+# Load environment variables
+load_dotenv(os.path.join(root_dir, ".env"), override=True)
+load_dotenv(override=True)
 
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -109,7 +111,9 @@ async def generate_card(request: CardRequest):
             )
 
     # 5. Serve saved cards
-    file_path = os.path.join(cards_dir, f"{username}.html")
+    file_path = os.path.join(cards_dir, f"{username.lower()}.html")
+    if not os.path.exists(file_path):
+        file_path = os.path.join(cards_dir, f"{username}.html")
     if not os.path.exists(file_path):
         raise HTTPException(
             status_code=500,
@@ -135,7 +139,9 @@ async def generate_card(request: CardRequest):
 # 5. Serve saved cards via GET endpoint
 @app.get("/card/{username}", response_class=HTMLResponse)
 async def get_card(username: str):
-    file_path = os.path.join(cards_dir, f"{username}.html")
+    file_path = os.path.join(cards_dir, f"{username.lower()}.html")
+    if not os.path.exists(file_path):
+        file_path = os.path.join(cards_dir, f"{username}.html")
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Card not found")
     
